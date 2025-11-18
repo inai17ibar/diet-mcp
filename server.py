@@ -25,7 +25,7 @@ from mcp.server.fastmcp import FastMCP
 # 設定
 # =========================
 
-MEALS_FILE = Path("meals.json")
+MEALS_FILE = Path.home() / "diet-mcp-meals.json"
 
 mcp = FastMCP("Diet Meal Log Server")
 
