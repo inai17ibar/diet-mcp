@@ -213,5 +213,21 @@ def get_week_summary(any_date_str: str) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    # MCPサーバーとして起動
-    mcp.run()
+    import sys
+    import os
+
+    # 引数でトランスポートモードを選択
+    # デフォルトはstdio（Claude Desktop用）
+    # --sse オプションでSSEモード（ネットワーク経由）
+    if "--sse" in sys.argv:
+        # SSEモードでHTTPサーバーとして起動
+        # ポートは環境変数 MCP_PORT で指定可能（デフォルト: 8000）
+        port = os.environ.get("MCP_PORT", "8000")
+        print(f"🌐 Starting MCP server in SSE mode")
+        print(f"📍 Access URL: http://0.0.0.0:{port}/sse")
+        print(f"📝 Data file: ~/diet-mcp-meals.json")
+        print(f"💡 Set MCP_PORT environment variable to change port")
+        mcp.run(transport="sse")
+    else:
+        # stdioモード（デフォルト）
+        mcp.run()

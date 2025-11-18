@@ -51,19 +51,19 @@ pip install -r requirements.txt
 
 ## 使い方
 
-### サーバーの起動
+このサーバーは2つのモードで動作します：
+
+### モード1: ローカルモード（stdio）
+
+Claude Desktopなどのローカルクライアント向け。
 
 ```bash
 # 仮想環境を有効化
 source .venv/bin/activate
 
-# サーバーを起動
+# stdioモードで起動（デフォルト）
 python server.py
 ```
-
-### MCPクライアントとの接続
-
-このサーバーはMCPプロトコルに対応したクライアント（Claude DesktopやMCP対応ツール）から利用できます。
 
 #### Claude Desktopでの設定例
 
@@ -73,7 +73,7 @@ python server.py
 {
   "mcpServers": {
     "diet-mcp": {
-      "command": "python",
+      "command": "/Users/soichiro.inatani/src/diet-mcp/.venv/bin/python",
       "args": ["/Users/soichiro.inatani/src/diet-mcp/server.py"],
       "env": {}
     }
@@ -81,9 +81,52 @@ python server.py
 }
 ```
 
+### モード2: ネットワークモード（SSE）
+
+別デバイスからアクセスする場合。
+
+```bash
+# 仮想環境を有効化
+source .venv/bin/activate
+
+# SSEモードで起動（ネットワーク経由）
+python server.py --sse
+```
+
+サーバーは `http://0.0.0.0:8000` で起動します。
+
+#### 他のデバイスからの接続
+
+1. **サーバーのIPアドレスを確認**
+
+```bash
+ifconfig | grep "inet " | grep -v 127.0.0.1
+# 例: inet 192.168.0.184
+```
+
+2. **クライアント側の設定**
+
+Claude Desktopの設定ファイル `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "diet-mcp-remote": {
+      "url": "http://192.168.0.184:8000/sse",
+      "transport": "sse"
+    }
+  }
+}
+```
+
+**注意事項：**
+- サーバーとクライアントが同じネットワーク内にある必要があります
+- ファイアウォールでポート8000を開放してください
+- インターネット経由でアクセスする場合は、適切なセキュリティ対策（認証、HTTPS化など）が必要です
+
 ### データの保存
 
-食事ログは `meals.json` に保存されます。
+食事ログは `~/diet-mcp-meals.json` に保存されます。
 
 ## 開発
 
