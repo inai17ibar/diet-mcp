@@ -1,0 +1,23 @@
+[project]
+name = "diet-mcp"
+version = "0.2.0"
+description = "Diet / meal log MCP server, exposed over Streamable HTTP for remote connectors (e.g. ChatGPT)"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.21.2",
+    "starlette>=0.50.0",
+    "uvicorn>=0.38.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+diet-mcp = "diet_mcp.server:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
