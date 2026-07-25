@@ -64,6 +64,26 @@ fly deploy
 4. コネクタ追加後、ブラウザで`/login`ページが開くので `DIET_MCP_API_KEY` の値をパスワードとして入力して許可する
 5. モバイルアプリでは、Web/デスクトップで一度コネクタを追加すればアカウント側の設定として反映され、モバイルからも同じコネクタが使えます
 
+## Apple ヘルスケアへの連携
+
+HealthKitにはクラウドAPIが無く、サーバーから直接書き込むことはできない。そのため、iOSショートカットが仲介する構成にしている。
+
+- `GET /api/meals/unsynced` — まだヘルスケアに反映していない食事ログ一覧(`Authorization: Bearer <DIET_MCP_API_KEY>`)
+- `POST /api/meals/mark-all-synced` — 今ある未同期の食事を全部同期済みにする(ボディ不要)。ショートカット側でIDリストを組み立てる必要がなく最も簡単
+- `POST /api/meals/mark-synced` — 個別に同期済みにしたい場合向け(body: `{"ids": ["<meal_id>", ...]}`)。通常は`mark-all-synced`で十分
+
+この3つは`/mcp`のOAuthとは別に、`DIET_MCP_API_KEY`をそのままBearerトークンとして使う簡易認証。ショートカット側でOAuth/PKCEを組む必要がない。
+
+### iOSショートカットの作り方(手動)
+
+1. ショートカットアプリで新規オートメーション(例: 毎日22時、または手動実行)を作成
+2. 「URLの内容を取得」で `GET https://<app-name>.fly.dev/api/meals/unsynced`、ヘッダーに `Authorization: Bearer <DIET_MCP_API_KEY>` を追加
+3. 「辞書から値を取得」で`meals`配列を取り出し、「リストの各項目を繰り返す」で1件ずつ処理
+4. 繰り返しの中で、各食事の`calories`(必要なら`protein_g`/`fat_g`/`carbs_g`も)を「辞書から値を取得」で取り出し、`date`+`time`を組み合わせてDate型に変換した上で、「ヘルスケアにサンプルを記録」で「摂取エネルギー」(および任意でタンパク質・脂質・炭水化物)に記録する。単位は`kcal`/`g`を明示的に選ぶこと(`cal`のままだと桁が変わってしまう)
+5. 繰り返しの外(繰り返しの終了より下)に「URLの内容を取得」で `POST https://<app-name>.fly.dev/api/meals/mark-all-synced`、ヘッダーは同じBearer。ボディは不要(IDリストを組み立てる必要がない)
+
+一度ヘルスケアに反映した食事は`synced_to_health`フラグが立ち、`update_meal`で内容を修正しても再エクスポートはされない(ヘルスケア側のサンプルは追記のみで上書きができないため、二重登録を避ける設計)。
+
 ## 既存データの移行
 
 旧バージョンでは `~/diet-mcp-meals.json` にデータを保存していました(今回の環境には実データはありませんでした)。もしデータがあれば:
@@ -83,7 +103,8 @@ diet-mcp/
 │   ├── models.py         # Mealデータクラス
 │   ├── oauth_provider.py # OAuthAuthorizationServerProvider実装(単一ユーザー向け)
 │   ├── auth.py           # /loginページ(パスワード確認→認可コード発行)
-│   └── pkce_compat.py    # PKCE省略クライアント(ChatGPT Connectors)向けの互換ミドルウェア
+│   ├── pkce_compat.py    # PKCE省略クライアント(ChatGPT Connectors)向けの互換ミドルウェア
+│   └── health_export.py  # ヘルスケア連携用のREST API(/api/meals/unsynced, /mark-all-synced, /mark-synced)
 ├── scripts/migrate_json_to_sqlite.py
 ├── tests/test_tools.py
 ├── legacy/               # 旧stdio/SSE版 (server.py, web_server.py等) を参考用に保存

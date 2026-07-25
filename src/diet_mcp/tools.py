@@ -47,27 +47,33 @@ def add_meal(
     time_str: str,
     description: str,
     calories: float,
+    protein_g: float | None,
+    fat_g: float | None,
+    carbs_g: float | None,
     tags: list[str] | None = None,
-    protein_g: float | None = None,
-    fat_g: float | None = None,
-    carbs_g: float | None = None,
 ) -> dict[str, Any]:
     """食事ログを1件追加する。
 
-    重要: この関数は食事1件につき1回呼び出すこと。朝食・昼食・夕食など、
-    1日の複数の食事をまとめて1回で記録しないこと(後で個別に編集・削除
-    できなくなるため)。複数の食事を記録する場合は、この関数を食事の数
-    だけ繰り返し呼び出す。
+    重要:
+    - この関数は食事1件につき1回呼び出すこと。朝食・昼食・夕食など、
+      1日の複数の食事をまとめて1回で記録しないこと(後で個別に編集・削除
+      できなくなるため)。複数の食事を記録する場合は、この関数を食事の数
+      だけ繰り返し呼び出す。
+    - protein_g / fat_g / carbs_g は必須引数。caloriesと同じように一般的な
+      栄養知識から概算して毎回必ず値を入れること。厳密な数値でなくてよい
+      (例: 「鶏胸肉200g」ならタンパク質40g・脂質5g・炭水化物0g程度、の
+      ようなざっくりで良い)。本当に見積もりようがない場合のみ明示的に
+      null を渡す(引数自体を省略することはできない)。
 
     Args:
         date_str: 日付 (YYYY-MM-DD)
         time_str: 時刻 (HH:MM)
         description: その1食の内容の説明(例: "バナナとヨーグルト")
         calories: 概算カロリー (kcal)
+        protein_g: 概算タンパク質量 (g)。caloriesと同様に毎回概算して入力する(必須)
+        fat_g: 概算脂質量 (g)。caloriesと同様に毎回概算して入力する(必須)
+        carbs_g: 概算炭水化物量 (g)。caloriesと同様に毎回概算して入力する(必須)
         tags: 任意のタグ(例: ["朝食", "外食"])
-        protein_g: 概算タンパク質量 (g)。不明なら省略可
-        fat_g: 概算脂質量 (g)。不明なら省略可
-        carbs_g: 概算炭水化物量 (g)。不明なら省略可
 
     Returns:
         追加されたレコード

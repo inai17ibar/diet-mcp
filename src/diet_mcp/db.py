@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -75,6 +76,8 @@ _MEAL_COLUMN_MIGRATIONS = {
     "protein_g": "REAL",
     "fat_g": "REAL",
     "carbs_g": "REAL",
+    "synced_to_health": "INTEGER NOT NULL DEFAULT 0",
+    "health_claimed_at": "REAL",
 }
 
 
@@ -180,6 +183,67 @@ def meals_between(conn: sqlite3.Connection, start_date: str, end_date: str) -> l
         (start_date, end_date),
     ).fetchall()
     return [_row_to_meal(r) for r in rows]
+
+
+# ---- Health export sync tracking ----
+
+# claim(配信)からこの秒数以内の食事は再配信しない。ショートカットの
+# 二重起動対策で、ヘルスケアに書き込まれないままこの時間が過ぎた場合は
+# 再び unsynced として配信される。
+HEALTH_CLAIM_TTL_SECONDS = 600
+
+
+def unsynced_meals(conn: sqlite3.Connection) -> list[Meal]:
+    rows = conn.execute(
+        "SELECT * FROM meals WHERE synced_to_health = 0 ORDER BY date, time"
+    ).fetchall()
+    return [_row_to_meal(r) for r in rows]
+
+
+def claim_unsynced_meals(
+    conn: sqlite3.Connection, *, ttl_seconds: float = HEALTH_CLAIM_TTL_SECONDS
+) -> list[Meal]:
+    """未同期の食事を取得し、同時にclaim(配信済み)の印を付ける。
+
+    ショートカットを連打しても、2回目以降のリクエストはTTL内なので
+    空リストが返り、ヘルスケアへの二重書き込みが起きない。
+    UPDATE ... RETURNING で取得と印付けを1文で行い、並行リクエスト間の
+    取りこぼしを防ぐ。
+    """
+    now = time.time()
+    rows = conn.execute(
+        "UPDATE meals SET health_claimed_at = ? "
+        "WHERE synced_to_health = 0 "
+        "AND (health_claimed_at IS NULL OR health_claimed_at < ?) "
+        "RETURNING *",
+        (now, now - ttl_seconds),
+    ).fetchall()
+    meals = [_row_to_meal(r) for r in rows]
+    meals.sort(key=lambda m: (m.date, m.time))
+    return meals
+
+
+def mark_meals_synced(conn: sqlite3.Connection, meal_ids: list[str]) -> int:
+    if not meal_ids:
+        return 0
+    placeholders = ",".join("?" for _ in meal_ids)
+    cursor = conn.execute(
+        f"UPDATE meals SET synced_to_health = 1 WHERE id IN ({placeholders})",
+        meal_ids,
+    )
+    return cursor.rowcount
+
+
+def mark_all_synced(conn: sqlite3.Connection) -> int:
+    """claim済み(=ショートカットに配信済み)の食事だけを同期済みにする。
+
+    同期の最中に追加された食事(未claim)を誤って同期済みにしない。
+    """
+    cursor = conn.execute(
+        "UPDATE meals SET synced_to_health = 1 "
+        "WHERE synced_to_health = 0 AND health_claimed_at IS NOT NULL"
+    )
+    return cursor.rowcount
 
 
 # ---- settings (single-user key/value, e.g. daily calorie goal) ----
