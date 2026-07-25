@@ -108,7 +108,7 @@ Apple ヘルスケア
 
 - **ChatGPT**: 記録の入力UI。会話からカロリー・PFCを概算して`add_meal`を呼ぶ
 - **iOSショートカット**: ヘルスケアへの反映係(HealthKitにはクラウドAPIが無いため)
-- **chatgpt-diet-app** (別リポジトリ、Railway: https://chatgpt-diet-app-production.up.railway.app/): Web UI・共有画像生成・投稿文生成を持つ別系統のフルスタックアプリ。名前は似ているが**日々の食事記録には使われていない**(2026-07-26時点で本番DBは0件)。将来的にSNS発信系(画像レンダリング・投稿)の役割を担う候補
+- **diet-publisher** (旧chatgpt-diet-app。別リポジトリ、Railway: https://chatgpt-diet-app-production.up.railway.app/): Web UI・共有画像生成・投稿文生成を持つ別系統のフルスタックアプリ。**日々の食事記録には使われていない**(2026-07-26時点で本番DBは0件)。SNS発信系(画像レンダリング・投稿)の役割を担う位置づけ(リポジトリ名の由来)。RailwayのサービスURLは旧名のまま
 
 ## 既存データの移行
 
