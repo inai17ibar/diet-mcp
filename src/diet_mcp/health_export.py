@@ -9,12 +9,15 @@ iOSショートカットから叩かれる想定。ショートカットはOAuth
 from __future__ import annotations
 
 import hmac
+from datetime import datetime, timedelta, timezone
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from diet_mcp import db
+from diet_mcp import db, tools
 from diet_mcp.auth import require_api_key
+
+JST = timezone(timedelta(hours=9))
 
 
 def _authorized(request: Request) -> bool:
@@ -53,6 +56,25 @@ async def list_unsynced_meals(request: Request):
             ]
         }
     )
+
+
+async def daily_summary(request: Request):
+    """指定日(デフォルト: JSTの今日)の食事サマリを返す読み取り専用API。
+
+    ストーリー画像生成など外部サービス(diet-publisher)向け。
+    unsyncedと違い、呼んでも状態は一切変わらない。
+    """
+    if not _authorized(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    date_str = request.query_params.get("date")
+    if not date_str:
+        date_str = datetime.now(JST).date().isoformat()
+    try:
+        summary = tools.get_daily_summary(date_str)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return JSONResponse(summary)
 
 
 async def mark_meals_synced(request: Request):

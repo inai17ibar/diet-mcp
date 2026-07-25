@@ -8,7 +8,12 @@ from mcp.server.fastmcp import FastMCP
 
 from diet_mcp import tools
 from diet_mcp.auth import handle_login, require_api_key
-from diet_mcp.health_export import list_unsynced_meals, mark_all_meals_synced, mark_meals_synced
+from diet_mcp.health_export import (
+    daily_summary,
+    list_unsynced_meals,
+    mark_all_meals_synced,
+    mark_meals_synced,
+)
 from diet_mcp.oauth_provider import SCOPE, DietMcpOAuthProvider
 from diet_mcp.pkce_compat import OptionalPkceMiddleware
 
@@ -51,6 +56,7 @@ mcp.tool()(tools.get_daily_summary)
 mcp.tool()(tools.get_week_summary)
 mcp.tool()(tools.set_calorie_goal)
 mcp.custom_route("/login", methods=["GET", "POST"])(handle_login)
+mcp.custom_route("/api/summary/daily", methods=["GET"])(daily_summary)
 mcp.custom_route("/api/meals/unsynced", methods=["GET"])(list_unsynced_meals)
 mcp.custom_route("/api/meals/mark-synced", methods=["POST"])(mark_meals_synced)
 mcp.custom_route("/api/meals/mark-all-synced", methods=["POST"])(mark_all_meals_synced)
