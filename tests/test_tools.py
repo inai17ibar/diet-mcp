@@ -250,3 +250,17 @@ def test_mark_all_synced_skips_meals_added_mid_sync():
     assert [m.id for m in unsynced] == [b["id"]]
     assert [m.id for m in next_claim] == [b["id"]]
     assert a["id"] not in [m.id for m in next_claim]
+
+
+def test_add_meal_rejects_multiple_meals_in_one_call():
+    """「朝：…、夜：…」のように1件にまとめた記録は拒否される。"""
+    with pytest.raises(ValueError):
+        tools.add_meal(
+            "2026-07-06", "12:00", "朝：鮭、レタス、コーヒー、夜：豚しゃぶ", 2600, 120, 90, 320
+        )
+
+
+def test_add_meal_allows_single_meal_with_one_marker():
+    """食事1件なら「朝食：」のようなプレフィックスがあっても登録できる。"""
+    result = tools.add_meal("2026-07-06", "08:00", "朝食：卵かけごはんと味噌汁", 400, 20, 10, 55)
+    assert result["id"]

@@ -42,6 +42,22 @@ def set_calorie_goal(calories: float) -> dict[str, Any]:
     return {"daily_calorie_goal": float(calories)}
 
 
+# 「朝：…、昼：…」のように1件に複数の食事をまとめた記録を検出するマーカー
+_MEAL_MARKER_GROUPS = [
+    ("朝：", "朝:", "朝食：", "朝食:"),
+    ("昼：", "昼:", "昼食：", "昼食:"),
+    ("夜：", "夜:", "夕：", "夕:", "夕食：", "夕食:", "夜食：", "夜食:"),
+    ("間食：", "間食:", "おやつ：", "おやつ:"),
+]
+
+
+def _looks_like_multiple_meals(description: str) -> bool:
+    matched = sum(
+        1 for group in _MEAL_MARKER_GROUPS if any(marker in description for marker in group)
+    )
+    return matched >= 2
+
+
 def add_meal(
     date_str: str,
     time_str: str,
@@ -58,7 +74,9 @@ def add_meal(
     - この関数は食事1件につき1回呼び出すこと。朝食・昼食・夕食など、
       1日の複数の食事をまとめて1回で記録しないこと(後で個別に編集・削除
       できなくなるため)。複数の食事を記録する場合は、この関数を食事の数
-      だけ繰り返し呼び出す。
+      だけ繰り返し呼び出す。「朝：…、昼：…」のような複数の食事を含む
+      descriptionはエラーで拒否される。その場合は食事ごとに分割し、
+      それぞれの時刻・カロリー・PFCを概算して複数回呼び出し直すこと。
     - protein_g / fat_g / carbs_g は必須引数。caloriesと同じように一般的な
       栄養知識から概算して毎回必ず値を入れること。厳密な数値でなくてよい
       (例: 「鶏胸肉200g」ならタンパク質40g・脂質5g・炭水化物0g程度、の
@@ -79,6 +97,13 @@ def add_meal(
         追加されたレコード
     """
     _parse_date_str(date_str)  # validate
+
+    if _looks_like_multiple_meals(description):
+        raise ValueError(
+            "descriptionに複数の食事（朝・昼・夜など）が含まれているようです。"
+            "add_mealは食事1件につき1回呼び出してください。食事ごとに分割し、"
+            "それぞれの時刻・カロリー・PFCを概算して個別に登録し直してください。"
+        )
 
     meal = Meal(
         id=str(uuid.uuid4()),
