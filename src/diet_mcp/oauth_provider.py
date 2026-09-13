@@ -18,6 +18,7 @@ from mcp.server.auth.provider import (
     AccessToken,
     AuthorizationCode,
     AuthorizationParams,
+    IdentityAssertionParams,
     OAuthAuthorizationServerProvider,
     RefreshToken,
 )
@@ -172,6 +173,16 @@ class DietMcpOAuthProvider(OAuthAuthorizationServerProvider[AuthorizationCode, R
             expires_at=int(row["expires_at"]) if row["expires_at"] is not None else None,
             resource=row["resource"],
         )
+
+    async def exchange_identity_assertion(
+        self, client: OAuthClientInformationFull, params: IdentityAssertionParams
+    ) -> OAuthToken:
+        """mcp 2.xで追加されたJWT Bearer認可。単一ユーザー構成では使わない。
+
+        AuthSettings.identity_assertion_enabled が既定のFalseなので呼ばれないが、
+        プロトコルを満たすために明示しておく。
+        """
+        raise NotImplementedError("identity assertion is not supported by diet-mcp")
 
     async def revoke_token(self, token: AccessToken | RefreshToken) -> None:
         with db.connect() as conn:

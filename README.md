@@ -125,7 +125,7 @@ python scripts/migrate_json_to_sqlite.py ~/diet-mcp-meals.json
 ```
 diet-mcp/
 ├── src/diet_mcp/
-│   ├── server.py         # FastMCPアプリ + AuthSettings + entrypoint
+│   ├── server.py         # MCPServerアプリ + AuthSettings + entrypoint
 │   ├── tools.py          # add_meal / update_meal / delete_meal / get_daily_summary / get_week_summary / set_calorie_goal
 │   ├── db.py             # SQLiteアクセス層 (meals + OAuth状態)
 │   ├── models.py         # Mealデータクラス

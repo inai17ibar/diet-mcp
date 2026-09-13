@@ -4,9 +4,9 @@ version = "0.2.0"
 description = "Diet / meal log MCP server, exposed over Streamable HTTP for remote connectors (e.g. ChatGPT)"
 requires-python = ">=3.11"
 dependencies = [
-    # mcp 2.xでFastMCPがMCPServerに改名され、server.py/oauth_provider.pyが動かなくなる。
-    # 2.x対応は別途行うまで上限を固定する（Dockerfileはロックファイル無しで毎回解決するため必須）
-    "mcp>=1.21.2,<2",
+    # メジャー跨ぎでAPIが変わる（1.x→2.xでFastMCP→MCPServer）。Dockerfileは
+    # ロックファイル無しで毎回解決するため、上限を固定しておく
+    "mcp>=2.2,<3",
     "starlette>=0.50.0",
     "uvicorn>=0.38.0",
 ]

@@ -4,7 +4,7 @@ import os
 
 import uvicorn
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from diet_mcp import tools
 from diet_mcp.auth import handle_login, require_api_key
@@ -32,15 +32,20 @@ def _issuer_url() -> str:
 issuer_url = _issuer_url()
 require_api_key()  # fail fast if the login password isn't configured
 
-mcp = FastMCP(
+def _port() -> int:
+    return int(os.environ.get("PORT", os.environ.get("MCP_PORT", "8000")))
+
+
+mcp = MCPServer(
     "Diet Meal Log Server",
-    host="0.0.0.0",
-    port=int(os.environ.get("PORT", os.environ.get("MCP_PORT", "8000"))),
-    stateless_http=True,
     auth_server_provider=DietMcpOAuthProvider(issuer_url),
     auth=AuthSettings(
         issuer_url=issuer_url,
         resource_server_url=f"{issuer_url}/mcp",
+        # mcp 3.0で既定がTrueになる。既存のアクセストークンにはresourceが
+        # 入っていないものがあり、Trueにすると再認証が必要になるため、
+        # 1.x時代と同じ挙動（監査しない）を明示して固定する
+        validate_token_resource=False,
         required_scopes=[SCOPE],
         client_registration_options=ClientRegistrationOptions(
             enabled=True,
@@ -63,11 +68,14 @@ mcp.custom_route("/api/meals/unsynced", methods=["GET"])(list_unsynced_meals)
 mcp.custom_route("/api/meals/mark-synced", methods=["POST"])(mark_meals_synced)
 mcp.custom_route("/api/meals/mark-all-synced", methods=["POST"])(mark_all_meals_synced)
 
-app = OptionalPkceMiddleware(mcp.streamable_http_app())
+# host はバインド先ではなくDNSリバインディング保護の判定に使われる。既定の
+# "127.0.0.1" のままだとallowed_hostsがlocalhost限定で自動有効化され、
+# 本番(Host: diet-mcp.fly.dev)への /mcp リクエストが弾かれる
+app = OptionalPkceMiddleware(mcp.streamable_http_app(stateless_http=True, host="0.0.0.0"))
 
 
 def main() -> None:
-    uvicorn.run(app, host=mcp.settings.host, port=mcp.settings.port)
+    uvicorn.run(app, host="0.0.0.0", port=_port())
 
 
 if __name__ == "__main__":
