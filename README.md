@@ -69,6 +69,7 @@ fly deploy
 HealthKitにはクラウドAPIが無く、サーバーから直接書き込むことはできない。そのため、iOSショートカットが仲介する構成にしている。
 
 - `GET /api/summary/daily?date=YYYY-MM-DD` — 指定日(省略時はJSTの今日)の食事サマリ。読み取り専用で状態は変わらない。diet-publisherのストーリー画像生成が使用
+- `GET /api/summary/week?date=YYYY-MM-DD` — 指定日を含む週(月曜始まり7日間)の食事サマリ。日別内訳・週合計・目標との比較を含む。読み取り専用。diet-publisherの週次振り返り画像が使用
 - `GET /api/meals/unsynced` — まだヘルスケアに反映していない食事ログ一覧(`Authorization: Bearer <DIET_MCP_API_KEY>`)
 - `POST /api/meals/mark-all-synced` — 今ある未同期の食事を全部同期済みにする(ボディ不要)。ショートカット側でIDリストを組み立てる必要がなく最も簡単
 - `POST /api/meals/mark-synced` — 個別に同期済みにしたい場合向け(body: `{"ids": ["<meal_id>", ...]}`)。通常は`mark-all-synced`で十分
@@ -131,7 +132,7 @@ diet-mcp/
 │   ├── oauth_provider.py # OAuthAuthorizationServerProvider実装(単一ユーザー向け)
 │   ├── auth.py           # /loginページ(パスワード確認→認可コード発行)
 │   ├── pkce_compat.py    # PKCE省略クライアント(ChatGPT Connectors)向けの互換ミドルウェア
-│   └── health_export.py  # ヘルスケア連携用のREST API(/api/meals/unsynced, /mark-all-synced, /mark-synced)
+│   └── health_export.py  # 読み取り用REST API(/api/summary/daily, /week)とヘルスケア連携(/api/meals/*)
 ├── scripts/migrate_json_to_sqlite.py
 ├── tests/test_tools.py
 ├── legacy/               # 旧stdio/SSE版 (server.py, web_server.py等) を参考用に保存

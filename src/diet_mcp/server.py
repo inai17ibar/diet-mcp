@@ -13,6 +13,7 @@ from diet_mcp.health_export import (
     list_unsynced_meals,
     mark_all_meals_synced,
     mark_meals_synced,
+    week_summary,
 )
 from diet_mcp.oauth_provider import SCOPE, DietMcpOAuthProvider
 from diet_mcp.pkce_compat import OptionalPkceMiddleware
@@ -57,6 +58,7 @@ mcp.tool()(tools.get_week_summary)
 mcp.tool()(tools.set_calorie_goal)
 mcp.custom_route("/login", methods=["GET", "POST"])(handle_login)
 mcp.custom_route("/api/summary/daily", methods=["GET"])(daily_summary)
+mcp.custom_route("/api/summary/week", methods=["GET"])(week_summary)
 mcp.custom_route("/api/meals/unsynced", methods=["GET"])(list_unsynced_meals)
 mcp.custom_route("/api/meals/mark-synced", methods=["POST"])(mark_meals_synced)
 mcp.custom_route("/api/meals/mark-all-synced", methods=["POST"])(mark_all_meals_synced)
