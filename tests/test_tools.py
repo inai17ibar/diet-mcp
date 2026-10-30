@@ -264,3 +264,33 @@ def test_add_meal_allows_single_meal_with_one_marker():
     """食事1件なら「朝食：」のようなプレフィックスがあっても登録できる。"""
     result = tools.add_meal("2026-07-06", "08:00", "朝食：卵かけごはんと味噌汁", 400, 20, 10, 55)
     assert result["id"]
+
+
+def test_add_meal_same_meal_twice_is_not_duplicated():
+    """応答待ちでの再送などで同じ食事が2回来ても、記録は1件のまま。"""
+    first = tools.add_meal("2026-10-30", "19:30", "焼き鳥5本", 800, 50, 40, 30)
+    second = tools.add_meal("2026-10-30", "19:30", "焼き鳥5本", 800, 50, 40, 30)
+
+    assert second["id"] == first["id"]
+    assert second["duplicate"] is True
+    summary = tools.get_daily_summary("2026-10-30")
+    assert len(summary["meals"]) == 1
+    assert summary["total_calories"] == 800
+
+
+def test_add_meal_retry_with_different_estimate_is_not_duplicated():
+    """再送時にカロリーの概算が変わっていても、同じ日時・内容なら同じ食事とみなす。"""
+    first = tools.add_meal("2026-10-30", "08:00", "鮭、玄米、味噌汁", 600, 35, 15, 80)
+    second = tools.add_meal("2026-10-30", "08:00", " 鮭、玄米、味噌汁 ", 650, 36, 16, 85)
+
+    assert second["id"] == first["id"]
+    assert len(tools.get_daily_summary("2026-10-30")["meals"]) == 1
+
+
+def test_add_meal_same_description_at_other_time_is_recorded():
+    """同じ内容でも時刻が違えば別の食事として記録する。"""
+    tools.add_meal("2026-10-30", "10:00", "プロテイン", 120, 24, 1, 3)
+    second = tools.add_meal("2026-10-30", "16:00", "プロテイン", 120, 24, 1, 3)
+
+    assert "duplicate" not in second
+    assert len(tools.get_daily_summary("2026-10-30")["meals"]) == 2
