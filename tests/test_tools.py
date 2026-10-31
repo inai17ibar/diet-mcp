@@ -1,4 +1,6 @@
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier, Event, Lock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -294,3 +296,53 @@ def test_add_meal_same_description_at_other_time_is_recorded():
 
     assert "duplicate" not in second
     assert len(tools.get_daily_summary("2026-10-30")["meals"]) == 2
+
+
+@pytest.mark.parametrize("workers", [2, 8])
+def test_add_meal_concurrent_retries_are_not_duplicated(monkeypatch, workers):
+    """Separate connections overlap while the first lookup is still in flight."""
+    # Initialize the schema before exercising concurrent meal writes.
+    with db.connect():
+        pass
+    start = Barrier(workers)
+    lookup_lock = Lock()
+    another_lookup = Event()
+    original_lookup = db.meals_on_date
+    lookup_count = 0
+
+    def overlapping_lookup(conn, date_str):
+        nonlocal lookup_count
+        meals = original_lookup(conn, date_str)
+        with lookup_lock:
+            lookup_count += 1
+            first = lookup_count == 1
+        if first:
+            # Without a write transaction, another reader sees the same empty
+            # result before this call inserts. With BEGIN IMMEDIATE it waits
+            # for this transaction to commit before entering the lookup.
+            another_lookup.wait(timeout=0.5)
+        else:
+            another_lookup.set()
+        return meals
+
+    monkeypatch.setattr(db, "meals_on_date", overlapping_lookup)
+
+    def register(index):
+        start.wait(timeout=5)
+        return tools.add_meal(
+            "2026-10-30", "19:30", " 焼き鳥5本 " if index else "焼き鳥5本",
+            800 + index, 50, 40, 30,
+        )
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = list(pool.map(register, range(workers)))
+
+    assert len({result["id"] for result in results}) == 1
+    originals = [result for result in results if not result.get("duplicate")]
+    assert len(originals) == 1
+    assert sum(result.get("duplicate", False) for result in results) == workers - 1
+    assert all(result["calories"] == originals[0]["calories"] for result in results)
+    summary = tools.get_daily_summary("2026-10-30")
+    assert len(summary["meals"]) == 1
+    assert summary["total_calories"] == originals[0]["calories"]
+

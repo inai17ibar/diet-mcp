@@ -120,6 +120,10 @@ def add_meal(
         carbs_g=carbs_g,
     )
     with db.connect() as conn:
+        # Acquire the SQLite write lock before reading so overlapping retries
+        # cannot both observe a missing meal. db.connect() commits (or closes
+        # and rolls back on error), including when returning an existing meal.
+        conn.execute("BEGIN IMMEDIATE")
         # 応答待ちでの再送などで同じ食事が2回届くと、日次合計・ヘルスケア・
         # ストーリー画像がすべて2重計上になる。同じ日時・内容の記録が既に
         # あれば新しく作らず既存を返す（再送時は概算値が揺れうるので数値は比べない）
@@ -281,3 +285,4 @@ def get_week_summary(any_date_str: str) -> dict[str, Any]:
         result["week_calorie_goal"] = goal * 7
         result["week_calories_remaining"] = goal * 7 - week_total
     return result
+
