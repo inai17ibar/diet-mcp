@@ -82,6 +82,9 @@ def add_meal(
       (例: 「鶏胸肉200g」ならタンパク質40g・脂質5g・炭水化物0g程度、の
       ようなざっくりで良い)。本当に見積もりようがない場合のみ明示的に
       null を渡す(引数自体を省略することはできない)。
+    - 同じ日付・時刻・descriptionの食事が既にあれば新しく追加せず、既存の
+      レコードに "duplicate": true を付けて返す。値を直したい場合は
+      update_mealを使うこと。
 
     Args:
         date_str: 日付 (YYYY-MM-DD)
@@ -109,7 +112,7 @@ def add_meal(
         id=str(uuid.uuid4()),
         date=date_str,
         time=time_str,
-        description=description,
+        description=description.strip(),
         calories=float(calories),
         tags=tags or [],
         protein_g=protein_g,
@@ -117,6 +120,21 @@ def add_meal(
         carbs_g=carbs_g,
     )
     with db.connect() as conn:
+        # Acquire the SQLite write lock before reading so overlapping retries
+        # cannot both observe a missing meal. db.connect() commits (or closes
+        # and rolls back on error), including when returning an existing meal.
+        conn.execute("BEGIN IMMEDIATE")
+        # 応答待ちでの再送などで同じ食事が2回届くと、日次合計・ヘルスケア・
+        # ストーリー画像がすべて2重計上になる。同じ日時・内容の記録が既に
+        # あれば新しく作らず既存を返す（再送時は概算値が揺れうるので数値は比べない）
+        for existing in db.meals_on_date(conn, date_str):
+            if existing.time == meal.time and existing.description.strip() == meal.description:
+                return {
+                    **asdict(existing),
+                    "duplicate": True,
+                    "message": "同じ日時・内容の食事が既に記録済みのため、新しく追加しませんでした。"
+                    "値を直したい場合はupdate_mealを使ってください。",
+                }
         db.insert_meal(conn, meal)
 
     return asdict(meal)
@@ -267,3 +285,4 @@ def get_week_summary(any_date_str: str) -> dict[str, Any]:
         result["week_calorie_goal"] = goal * 7
         result["week_calories_remaining"] = goal * 7 - week_total
     return result
+
