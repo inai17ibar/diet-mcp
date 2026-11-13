@@ -6,6 +6,7 @@ import uvicorn
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 from mcp.server.mcpserver import MCPServer
 
+from diet_mcp.health_import import import_health, health_week_summary
 from diet_mcp import tools
 from diet_mcp.auth import handle_login, require_api_key
 from diet_mcp.health_export import (
@@ -61,6 +62,8 @@ mcp.tool()(tools.delete_meal)
 mcp.tool()(tools.get_daily_summary)
 mcp.tool()(tools.get_week_summary)
 mcp.tool()(tools.set_calorie_goal)
+mcp.custom_route("/api/health/import", methods=["POST"])(import_health)
+mcp.custom_route("/api/health/week", methods=["GET"])(health_week_summary)
 mcp.custom_route("/login", methods=["GET", "POST"])(handle_login)
 mcp.custom_route("/api/summary/daily", methods=["GET"])(daily_summary)
 mcp.custom_route("/api/summary/week", methods=["GET"])(week_summary)
