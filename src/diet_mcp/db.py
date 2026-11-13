@@ -63,6 +63,17 @@ CREATE TABLE IF NOT EXISTS oauth_refresh_tokens (
     expires_at REAL
 );
 
+CREATE TABLE IF NOT EXISTS health_daily (
+    date TEXT PRIMARY KEY,
+    steps INTEGER,
+    active_energy_kcal REAL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS health_weights (
+    measured_at TEXT PRIMARY KEY,
+    weight_kg REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL

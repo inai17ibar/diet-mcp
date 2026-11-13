@@ -140,3 +140,9 @@ diet-mcp/
 ├── fly.toml
 └── pyproject.toml
 ```
+
+## Appleヘルスケアからの取り込み（追加）
+
+歩数・活動エネルギー・測定日時付き体重を専用REST APIで受信できます。
+既存の食事→ヘルスケア同期とは独立し、SNS向けサマリには含めません。
+設定・API仕様・iPhone手順・未検証事項は [連携ガイド](docs/apple-health-import.md) を参照。
