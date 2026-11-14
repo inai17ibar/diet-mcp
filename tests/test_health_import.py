@@ -65,3 +65,35 @@ def test_invalid_batch_is_atomic(client, payload):
 def test_malformed_and_oversized(client):
     assert client.post('/import', content='{', headers=H).status_code == 400
     assert client.post('/import', content='x' * 256001, headers=H).status_code == 413
+
+
+@pytest.mark.parametrize("steps", [0.0, 24.0, 5300.0])
+def test_integral_float_steps(client, steps):
+    response = client.post('/import', json={'daily': [{'date': '2026-11-09', 'steps': steps}]}, headers=H)
+    assert response.status_code == 200
+    summary = client.get('/week?date=2026-11-09', headers=R).json()
+    assert summary['daily'][0]['steps'] == int(steps)
+
+
+@pytest.mark.parametrize("steps", [True, 1.5, "24 count", [24], {"value": 24}])
+def test_steps_error_identifies_field_without_echoing_health_data(client, steps):
+    response = client.post('/import', json={'daily': [{'date': '2026-11-09', 'steps': steps}]}, headers=H)
+    assert response.status_code == 400
+    assert response.json()['issues'][0]['field'] == 'daily.0.steps'
+    assert 'input' not in response.text
+    assert '2026-11-09' not in response.text
+    assert 'health-only' not in response.text
+    assert '24 count' not in response.text
+
+
+def test_date_error_is_actionable(client):
+    response = client.post('/import', json={'daily': [{'date': '', 'steps': 24}]}, headers=H)
+    assert response.status_code == 400
+    assert response.json()['issues'][0]['field'] == 'daily.0.date'
+    assert 'yyyy-MM-dd' in response.json()['issues'][0]['hint']
+
+
+def test_unknown_field_name_is_not_echoed(client):
+    response = client.post('/import', json={'private-health-text': 95}, headers=H)
+    assert response.status_code == 400
+    assert 'private-health-text' not in response.text

@@ -20,6 +20,14 @@ class DailyHealth(BaseModel):
     steps: int | None = Field(default=None, ge=0, le=200000, strict=True)
     active_energy_kcal: float | None = Field(default=None, ge=0, le=20000)
 
+    @field_validator("steps", mode="before")
+    @classmethod
+    def integral_steps(cls, value):
+        # Shortcuts may serialize a whole number as 24.0. Never round fractions.
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
+        return value
+
 
 class Weight(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -58,8 +66,28 @@ async def import_health(request: Request):
         keys = [w.measured_at.astimezone(timezone.utc).isoformat() for w in batch.weights]
         if len(set(keys)) != len(keys):
             raise ValueError("duplicate measurement timestamps")
-    except (ValueError, ValidationError):
-        return JSONResponse({"error": "invalid health payload; check dates, units and values"}, status_code=400)
+    except ValidationError as exc:
+        allowed = {"daily", "weights", "date", "steps", "active_energy_kcal", "measured_at", "weight_kg"}
+        issues = []
+        for error in exc.errors(include_input=False, include_context=False, include_url=False)[:10]:
+            location = error["loc"]
+            safe_location = [str(p) if isinstance(p, int) or p in allowed else "unknown_field" for p in location]
+            field = ".".join(safe_location) or "body"
+            last = location[-1] if location else "body"
+            hints = {
+                "date": "Use formatted date text: yyyy-MM-dd.",
+                "steps": "Use the current Repeat Item Value as a whole number, without count or units.",
+                "measured_at": "Use the measurement start date with timezone, formatted as ISO 8601.",
+                "weight_kg": "Use a numeric kg value, without units.",
+                "daily": "daily must be an array of dictionaries, not a dictionary or text.",
+                "weights": "weights must be an array of dictionaries, not a dictionary or text.",
+            }
+            issues.append({"field": field, "code": error["type"],
+                           "hint": hints.get(last, "Check the JSON array and dictionary structure.")})
+        return JSONResponse({"error": "invalid health payload", "issues": issues}, status_code=400)
+    except ValueError:
+        return JSONResponse({"error": "invalid health payload",
+                             "hint": "Check JSON syntax and duplicate dates or measurement timestamps."}, status_code=400)
     now = datetime.now(timezone.utc).isoformat()
     with db.connect() as conn:
         for day in batch.daily:
