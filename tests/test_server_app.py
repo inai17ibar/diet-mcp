@@ -168,3 +168,20 @@ def test_mcp_exposes_the_expected_tools(client):
         "get_week_summary",
         "set_calorie_goal",
     }
+
+
+def test_mcp_daily_summary_includes_private_health(client):
+    response = client.post('/mcp', json={
+        'jsonrpc': '2.0', 'id': 3, 'method': 'tools/call',
+        'params': {'name': 'get_daily_summary', 'arguments': {'date_str': '2026-11-13'}}
+    }, headers=MCP_HEADERS)
+    assert response.status_code == 200
+    result = _sse_json(response)['result']
+    assert not result.get('isError', False)
+    body = result.get('structuredContent')
+    if body is None:
+        body = json.loads(result['content'][0]['text'])
+    assert 'health' in body
+    # The same day's REST response remains food-only for SNS consumers.
+    social = client.get('/api/summary/daily?date=2026-11-13', headers={'Authorization': f'Bearer {API_KEY}'})
+    assert 'health' not in social.json()
